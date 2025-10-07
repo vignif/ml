@@ -25,16 +25,18 @@ COPY requirements.txt ./requirements.txt
 # Separate torch install path to allow better layer caching & optional CPU-only slim wheels
 RUN set -eux; \
     pip install --no-cache-dir --upgrade pip setuptools wheel; \
-    # Filter out torch & torchvision from requirements (will install explicitly next)
     grep -vi '^torchvision==' requirements.txt | grep -vi '^torch==' > req.no-torch.txt; \
     pip install --no-cache-dir -r req.no-torch.txt; \
     if [ "$TORCH_CPU_ONLY" = "1" ]; then \
-        pip install --no-cache-dir torch==2.3.1+cpu torchvision==0.18.1+cpu --index-url https://download.pytorch.org/whl/cpu; \
+        pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.3.1 torchvision==0.18.1; \
     else \
         pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1; \
     fi; \
     gunicorn --version; \
-    python - <<'PY' || true\nimport torch,os,platform\nprint('Torch build:', torch.__version__, 'CUDA:', torch.cuda.is_available(), 'Device count:', torch.cuda.device_count())\nPY
+    python - <<'PY' || true
+import torch
+print('Torch build:', torch.__version__, 'CUDA:', torch.cuda.is_available(), 'Device count:', torch.cuda.device_count())
+PY
 
 # Copy source code
 COPY src ./src
@@ -50,6 +52,6 @@ EXPOSE 8000
 RUN if [ "$PRELOAD_WEIGHTS" = "1" ]; then python -c "import torchvision.models as m; m.vgg19(weights=m.VGG19_Weights.DEFAULT)"; fi
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
-  CMD python - <<'PY' || exit 1\nimport os,urllib.request,sys\nbase=os.environ.get('BASE_PATH','').rstrip('/')\nurl=f"http://127.0.0.1:8000{base if base else ''}/"\ntry: urllib.request.urlopen(url,timeout=3)\nexcept Exception: sys.exit(1)\nPY
+    CMD python -c "import os,urllib.request,sys; b=os.environ.get('BASE_PATH','').rstrip('/'); url=f'http://127.0.0.1:8000{b if b else ''}/';\n  urllib.request.urlopen(url,timeout=3)" || exit 1
 
 CMD ["/bin/sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w ${ST_WORKERS:-1} -b 0.0.0.0:8000 src.server:app --timeout 300 || uvicorn src.server:app --host 0.0.0.0 --port 8000 --timeout-keep-alive 300"]
