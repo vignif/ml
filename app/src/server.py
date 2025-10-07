@@ -58,6 +58,9 @@ def _determine_prefix(request: Request) -> str:
         prefix = "/" + prefix
     return prefix.rstrip("/")
 
+@app.get("/ping")
+async def ping():
+    return {"status": "ok"}
 
 @app.get("/", response_class=HTMLResponse)
 async def index_root(request: Request):
