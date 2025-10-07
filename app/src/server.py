@@ -39,6 +39,7 @@ JOBS_DIR = BASE_DIR / "job_state"
 JOBS_DIR.mkdir(exist_ok=True)
 PERSIST_JOBS = os.getenv("ST_PERSIST_JOBS", "1") not in {"0", "false", "False"}
 PERSIST_STEP_INTERVAL = int(os.getenv("ST_PERSIST_STEP_INTERVAL", "5"))
+OUTPUT_JPEG_QUALITY = int(os.getenv("ST_OUTPUT_JPEG_QUALITY", "88"))
 
 static_dir = StaticFiles(directory=str(BASE_DIR / "static"))
 # Always mount base /static (works when proxy strips prefix)
@@ -186,7 +187,7 @@ def _run_style_job(job_id: str, content_path: Path, style_path: Path, steps: int
             _persist_job(job_id)
             return
         buf = BytesIO()
-        img.save(buf, format='JPEG')
+        img.save(buf, format='JPEG', quality=OUTPUT_JPEG_QUALITY, optimize=True)
         buf.seek(0)
         job['result'] = buf
         job['status'] = 'finished'

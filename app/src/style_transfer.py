@@ -11,6 +11,7 @@ from typing import Callable, Optional, Dict, Any
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAX_IMAGE_SIDE = int(os.getenv("ST_MAX_IMAGE_SIDE", "512"))
 MIN_IMAGE_SIDE = int(os.getenv("ST_MIN_IMAGE_SIDE", "32"))  # must be >= 32 for 5 VGG19 poolings
+MAX_TOTAL_PIXELS = int(os.getenv("ST_MAX_TOTAL_PIXELS", str(512*512)))  # additional cap (w*h)
 
 # Simple fast style transfer using a pre-trained VGG19 feature extractor and iterative optimization.
 # For production you'd likely want a pre-trained transformer network for speed.
@@ -26,6 +27,14 @@ def load_image(path: Path, max_size: int | None = None) -> torch.Tensor:
         scale = max_size / largest
         w, h = int(w * scale), int(h * scale)
         img = img.resize((w, h), Image.LANCZOS)
+    # Additional downscale if total pixels still exceed budget
+    total_pixels = w * h
+    if total_pixels > MAX_TOTAL_PIXELS:
+        scale = (MAX_TOTAL_PIXELS / total_pixels) ** 0.5
+        new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
+        if new_w < w and new_h < h:
+            img = img.resize((new_w, new_h), Image.LANCZOS)
+            w, h = new_w, new_h
     # Ensure minimum side so VGG pooling does not collapse to zero
     smallest = min(w, h)
     if smallest < MIN_IMAGE_SIDE:
