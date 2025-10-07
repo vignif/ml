@@ -1,0 +1,31 @@
+services:
+  ml-style:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    image: style-transfer-app:latest
+    container_name: ml-style
+    environment:
+      - BASE_PATH=/ml
+      - PYTHONUNBUFFERED=1
+    # Map host port 8006 -> container 8000 (adjust to free port on host)
+    ports:
+      - "8006:8000"
+    restart: unless-stopped
+    # Persist uploads and cache model weights
+    volumes:
+      - ./app/uploads:/app/uploads
+      - ./app/models:/app/models
+      - torch-cache:/app/.cache/torch
+    # If you have NVIDIA GPU and proper drivers, uncomment the next two lines
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: ["gpu"]
+    # Or for docker compose v2 with --gpus:
+    # runtime: nvidia
+    # Alternatively run: docker compose run --gpus all ml-style
+
+volumes:
+  torch-cache:
